@@ -1,0 +1,64 @@
+﻿<Window x:Class="SysProgTemplate.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:SysProgTemplate"
+        xmlns:custom="clr-namespace:SysProgTemplate.Components"
+        mc:Ignorable="d"
+        Title="MainWindow"
+        WindowStyle="ToolWindow"
+        WindowState="Maximized">
+    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1*" />
+            <ColumnDefinition Width="1*" />
+            <ColumnDefinition Width="1*" />
+        </Grid.ColumnDefinitions>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="6*" />
+            <RowDefinition Height="1*" />
+        </Grid.RowDefinitions>
+
+        <!-- column 1 -->
+        <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch" Grid.Column="0">
+            <TextBlock HorizontalAlignment="Center" Margin="2">Исходный текст</TextBlock>
+            <TextBox x:Name="SourceCode_TextBox" AcceptsReturn="True" AcceptsTab="True" Height="350" HorizontalAlignment="Stretch" Margin="5" />
+
+            <TextBlock HorizontalAlignment="Center" Margin="2">Таблица кодов операций</TextBlock>
+            <!--custom:CommandsDataGrid x:Name="Commands_DataGrid" CanUserAddRows="True" Height="300" HorizontalAlignment="Stretch" Margin="5"/-->
+            <TextBox x:Name="Commands_TextBox" AcceptsReturn="True" AcceptsTab="True" Height="300" HorizontalAlignment="Stretch" Margin="5"/>
+        </StackPanel> 
+
+        <!-- column 2 -->
+        <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch" Grid.Column="1">
+            <TextBlock HorizontalAlignment="Center" Margin="2">Вспомогательная таблица</TextBlock>
+            <TextBox Name="FirstPass_TextBox" IsReadOnly="True" Height="350" HorizontalAlignment="Stretch" Margin="5" />
+
+            <TextBlock HorizontalAlignment="Center" Margin="2">Таблица символических имен</TextBlock>
+            <TextBox Name="TSI_TextBox" IsReadOnly="True" Height="150" HorizontalAlignment="Stretch" Margin="5" />
+
+            <TextBlock HorizontalAlignment="Center" Margin="2">Ошибки первого прохода</TextBlock>
+            <TextBox Name="FirstPassErrors_TextBox" Height="120" HorizontalAlignment="Stretch"  TextWrapping="Wrap" Margin="5" />
+        </StackPanel>
+
+        <!-- column 3 -->
+        <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch" Grid.Column="2">
+            <TextBlock HorizontalAlignment="Center" Margin="2">Двоичный код</TextBlock>
+            <TextBox Name="SecondPass_TextBox" Height="350" HorizontalAlignment="Stretch" Margin="5" />
+
+            <TextBlock HorizontalAlignment="Center" Margin="2">Ошибки второго прохода</TextBlock>
+            <TextBox  Name="SecondPassErrors_TextBox" Height="120" TextWrapping="Wrap" HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Margin="5" />
+        </StackPanel>
+
+        <!-- buttons row -->
+        <StackPanel Orientation="Horizontal" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3">
+            <Button Name="FirstPass_Button" Height="30" Margin="10" Click="FirstPass_ButtonClick">Первый проход
+            </Button>
+
+            <Button Name="SecondPass_Button" Height="30" Margin="10" Click="SecondPass_ButtonClick">Второй проход
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>
