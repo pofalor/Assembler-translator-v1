@@ -10,7 +10,11 @@ namespace SysProgTemplateShared.Dto
 {
     public class CommandDto
     {
-        public string Name { get; set; } = default!; 
+        public string Name { get; set; } = default!;
+
+        /// <summary>
+        /// Код - должен быть шестнадцатиричным числом, представленным в строке
+        /// </summary>
         public string Code { get; set; } = default!; 
         public string Length { get; set; } = default!;
 

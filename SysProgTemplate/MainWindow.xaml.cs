@@ -101,6 +101,7 @@ L1  LOADR1  B1
                 FirstPassTextBox.Text = null; 
                 FirstPassErrorsTextBox.Text = null; 
 
+                //Получаем команды, которые доступны в программе и парсим их в нужный формат
                 var newCommands = Parser.TextToCommandDtos(CommandsTextBox.Text);
                 Assembler.SetAvailibleCommands(newCommands);
 
