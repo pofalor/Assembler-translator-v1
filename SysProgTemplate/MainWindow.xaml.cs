@@ -109,7 +109,7 @@ L1  LOADR1  B1
 
                 var sourceCode = Parser.ParseCode(SourceCodeTextBox.Text); 
                 FirstPassTextBox.Text = string.Join("\n", Assembler.FirstPass(sourceCode));
-                TSITextBox.Text = string.Join("\n", Assembler.TSI.Select(w => $"{w.Name} {w.Address.ToString("X6")}")); 
+                TSITextBox.Text = Assembler.GetFormattedTsiForMain(); 
             }
             catch (AssemblerException ex)
             {

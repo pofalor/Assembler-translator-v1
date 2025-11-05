@@ -26,5 +26,10 @@ namespace SysProgTemplateShared.Helpers
         {
             return c >= '0' && c <= '9';
         }
+
+        public static bool IsLatinLetterOrDigitOrUnderscore(char c)
+        {
+            return IsLatinLetter(c) || IsDigit(c) || c == '_';
+        }
     }
 }

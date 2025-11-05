@@ -10,7 +10,7 @@ namespace SysProgTemplateShared.Structure
     public class CodeLine
     {
         public string? Label { get; set; }
-        public string Command { get; set; } = default!; 
+        public string Command { get; set; } = null!; 
         public string? FirstOperand { get; set; } 
         public string? SecondOperand { get; set; } 
     }

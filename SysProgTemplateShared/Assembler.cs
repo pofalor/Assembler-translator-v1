@@ -34,9 +34,10 @@ namespace SysProgTemplateShared
             new Command(){ Name = "INT", Code = 6, Length = 2 },
         ];
 
-        private readonly string[] AvailibleDirectives = ["START", "END", "WORD", "BYTE", "RESB", "RESW"]; 
+        private readonly string[] AvailibleDirectives = ["START", "END", "WORD", "BYTE", "RESB", "RESW"];
 
-        public List<SymbolicName> TSI = new(); 
+        private readonly List<SymbolicName> TSI = [];
+
 
         public void SetAvailibleCommands(List<CommandDto> newAvailibleCommandsDto)
         {
@@ -49,7 +50,7 @@ namespace SysProgTemplateShared
             bool isNameUnique = newAvailibleCommands.All(x => nhs.Add(x.Name.ToUpper()));
 
             if (!isNameUnique)
-                throw new AssemblerException("Все имена команд должны быть уникальными");
+                throw new AssemblerException("Все имена команд должны быть уникальными.");
 
 
             // check Code uniqueness 
@@ -57,7 +58,7 @@ namespace SysProgTemplateShared
             bool isCodeUnique = newAvailibleCommands.All(x => chs.Add(x.Code));
 
             if (!isCodeUnique)
-                throw new AssemblerException("Все коды команд должны быть уникальными");
+                throw new AssemblerException("Все коды команд должны быть уникальными.");
 
             this.AvailibleCommands = newAvailibleCommands; 
         }
@@ -73,8 +74,6 @@ namespace SysProgTemplateShared
             bool startFlag = false;         // Was START directive found?  
             bool endFlag = false;           // Was END directive found? 
 
-            CodeLine codeLine = null; 
-
             foreach (List<string> line in lines)
             {
                 var textLine = string.Join(" ", line);
@@ -88,7 +87,7 @@ namespace SysProgTemplateShared
                 // if the END directive has already been found in a previous lines, break 
                 if (endFlag) break;
 
-                codeLine = GetCodeLineFromSource(line); 
+                var codeLine = GetCodeLineFromSource(line); 
 
                 // processing label first 
                 if(codeLine.Label != null)
@@ -96,7 +95,7 @@ namespace SysProgTemplateShared
                     // try to find label in tsi 
                     if (TSI.Select(w => w.Name.ToUpper()).Contains(codeLine.Label.ToUpper()))
                     {
-                        throw new AssemblerException($"Такая метка уже есть в ТСИ: {textLine}");
+                        throw new AssemblerException($"Такая метка уже есть в таблице TSI: {textLine}");
                     }
                     else if (startFlag)
                     {
@@ -118,6 +117,7 @@ namespace SysProgTemplateShared
                                 if (codeLine.SecondOperand != null) throw new AssemblerException($"Ожидается один операнд, но найдено два: {textLine}");
 
                                 // start should be at the beginning and first 
+                                // Исключение вызывается, если пришли сюда ещё раз (после самого старта программы).
                                 if (ip != 0 || startFlag) throw new AssemblerException($"START должен быть единственным, в начале исходного кода: {textLine}");
 
                                 // start was found 
@@ -131,7 +131,7 @@ namespace SysProgTemplateShared
                                 {
                                     address = Convert.ToInt32(codeLine.FirstOperand, 10);
                                 }
-                                catch (Exception ex)
+                                catch
                                 {
                                     throw new AssemblerException($"Невозможно преобразовать первый операнд в адрес начала программы: {textLine}");
                                 }
@@ -147,6 +147,7 @@ namespace SysProgTemplateShared
                                 startAddress = address;
 
                                 // output 
+                                // X6 - шестнадцатиричное число с 6 символами
                                 firstPassLine = $"{codeLine.Label} {codeLine.Command} {address:X6}";
                                 break;
                             }
@@ -164,18 +165,18 @@ namespace SysProgTemplateShared
                                 {
                                     value = Convert.ToInt32(codeLine.FirstOperand, 10);
                                 }
-                                catch (Exception ex)
+                                catch
                                 {
                                     throw new AssemblerException($"Невозможно преобразовать первый операнд в число: {textLine}");
                                 }
 
                                 // check if within 0-16777215 
-                                if (value <= 0 || value > 16777215) throw new AssemblerException($"Значение первого операнда выходит за границы допустимого диапазона (1-16777215): {textLine}");
+                                if (value <= 0 || value > maxAddress) throw new AssemblerException($"Значение первого операнда выходит за границы допустимого диапазона (1-{maxAddress}): {textLine}");
 
                                 // check for allocated memory overflow 
                                 OverflowCheck(ip + 3, textLine);
 
-                                firstPassLine = $"{ip:X6} {"WORD"} {value:X6}";
+                                firstPassLine = $"{ip:X6} {codeLine.Command} {value:X6}";
                                 ip += 3;
                                 break;
                             }
@@ -185,10 +186,9 @@ namespace SysProgTemplateShared
                                 if (codeLine.FirstOperand == null) throw new AssemblerException($"Ожидается один операнд, но было получено ноль: {textLine}");
                                 if (codeLine.SecondOperand != null) throw new AssemblerException($"Ожидается один операнд, но найдено два: {textLine}");
 
-                                int value;
 
                                 // try to parse as a 1 byte value 
-                                if (int.TryParse(codeLine.FirstOperand, out value))
+                                if (int.TryParse(codeLine.FirstOperand, out var value))
                                 {
                                     // check if within 0-255 
                                     if (value < 0 || value > 255) throw new AssemblerException($"Значение первого операнда выходит за границы допустимого диапазона (0-255): {textLine}");
@@ -196,7 +196,7 @@ namespace SysProgTemplateShared
                                     // check for allocated memory overflow 
                                     OverflowCheck(ip + 1, textLine);
 
-                                    firstPassLine = $"{ip:X6} {"BYTE"} {value:X2}";
+                                    firstPassLine = $"{ip:X6} {codeLine.Command} {value:X2}";
                                     ip += 1;
                                     break;
                                 }
@@ -208,7 +208,7 @@ namespace SysProgTemplateShared
                                     // check for allocated memory overflow 
                                     OverflowCheck(ip + symbols.Length, textLine); 
 
-                                    firstPassLine = $"{ip:X6} {"BYTE"} {codeLine.FirstOperand}";
+                                    firstPassLine = $"{ip:X6} {codeLine.Command} {codeLine.FirstOperand}";
                                     ip += symbols.Length;
                                     break;
                                 }
@@ -219,7 +219,7 @@ namespace SysProgTemplateShared
                                     // check for allocated memory overflow 
                                     OverflowCheck(ip + symbols.Length, textLine);
 
-                                    firstPassLine = $"{ip:X6} {"BYTE"} {codeLine.FirstOperand.ToUpper()}";
+                                    firstPassLine = $"{ip:X6} {codeLine.Command} {codeLine.FirstOperand.ToUpper()}";
                                     ip += symbols.Length;
                                     break;
                                 }
@@ -231,7 +231,7 @@ namespace SysProgTemplateShared
 
                         case "RESW":
                             {
-                                if (codeLine.FirstOperand == null) throw new AssemblerException($"Ожидается один операнд, но было получено ноль: {textLine}");
+                                if (codeLine.FirstOperand == null) throw new AssemblerException($"Ожидается один операнд, но не было получено ни одного: {textLine}");
                                 if (codeLine.SecondOperand != null) throw new AssemblerException($"Ожидается один операнд, но найдено два: {textLine}");
 
                                 int value;
@@ -241,25 +241,25 @@ namespace SysProgTemplateShared
                                 {
                                     value = Convert.ToInt32(codeLine.FirstOperand, 10);
                                 }
-                                catch (Exception ex)
+                                catch
                                 {
                                     throw new AssemblerException($"Невозможно преобразовать первый операнд в число: {textLine}");
                                 }
 
-                                // check if within 0-16777215 
+                                // check if within 0-255 
                                 if (value <= 0 || value > 255) throw new AssemblerException($"Значение первого операнда выходит за границы допустимого диапазона (1-255): {textLine}");
 
                                 // check for allocated memory overflow 
                                 OverflowCheck(ip + value * 3, textLine);
 
-                                firstPassLine = $"{ip:X6} {"RESW"} {value:X2}";
-                                ip += value*3;
+                                firstPassLine = $"{ip:X6} {codeLine.Command} {value:X2}";
+                                ip += value * 3;
                                 break;
                             }
 
                         case "RESB":
                             {
-                                if (codeLine.FirstOperand == null) throw new AssemblerException($"Ожидается один операнд, но было получено ноль: {textLine}");
+                                if (codeLine.FirstOperand == null) throw new AssemblerException($"Ожидается один операнд, но не было получено ни одного: {textLine}");
                                 if (codeLine.SecondOperand != null) throw new AssemblerException($"Ожидается один операнд, но найдено два: {textLine}");
 
                                 int value;
@@ -269,18 +269,18 @@ namespace SysProgTemplateShared
                                 {
                                     value = Convert.ToInt32(codeLine.FirstOperand, 10);
                                 }
-                                catch (Exception ex)
+                                catch
                                 {
                                     throw new AssemblerException($"Невозможно преобразовать первый операнд в число: {textLine}");
                                 }
 
-                                // check if within 0-16777215 
+                                // check if within 0-255 
                                 if (value <= 0 || value > 255) throw new AssemblerException($"Значение первого операнда выходит за границы допустимого диапазона (1-255): {textLine}");
 
                                 // check for allocated memory overflow 
                                 OverflowCheck(ip + value, textLine);
 
-                                firstPassLine = $"{ip:X6} {"RESB"} {value:X2}";
+                                firstPassLine = $"{ip:X6} {codeLine.Command} {value:X2}";
                                 ip += value;
                                 break;
                             }
@@ -289,7 +289,9 @@ namespace SysProgTemplateShared
                             {
                                 if (codeLine.SecondOperand != null) throw new AssemblerException($"Ожидается максимум один операнд, но найдено два: {textLine}");
 
-                                if (!startFlag || endFlag) throw new AssemblerException($"Не найдена метка START либо ошибка в директивах START/END: {textLine}");
+                                if (!startFlag) throw new AssemblerException($"Не найдена метка START либо ошибка в директивах START/END: {textLine}");
+
+                                if (endFlag) throw new AssemblerException($"Метка END должна быть только один раз: {textLine}");
 
                                 if (codeLine.FirstOperand == null)
                                 {
@@ -304,12 +306,12 @@ namespace SysProgTemplateShared
                                     {
                                         address = Convert.ToInt32(codeLine.FirstOperand, 10);
                                     }
-                                    catch (Exception ex)
+                                    catch
                                     {
                                         throw new AssemblerException($"Невозможно преобразовать первый операнд в адрес входа в программу: {textLine}");
                                     }
 
-                                    if (address < 0 || address > 16777215) throw new AssemblerException($"Значение первого операнда выходит за границы допустимого диапазона (0-16777215): {textLine}");
+                                    if (address < 0 || address > maxAddress) throw new AssemblerException($"Значение первого операнда выходит за границы допустимого диапазона (0-{maxAddress}): {textLine}");
 
                                     // check if it's within allocated memory bounds  
                                     OverflowCheck(address, textLine); 
@@ -325,8 +327,7 @@ namespace SysProgTemplateShared
                 // is it a command? 
                 else if (IsCommand(codeLine.Command))
                 {
-                    var command = AvailibleCommands.Find(c => c.Name.ToUpper() == codeLine.Command);
-
+                    var command = AvailibleCommands.Find(c => c.Name.ToUpper() == codeLine.Command) ?? throw new AssemblerException($"Не найдена команда: {textLine}");
                     switch (command.Length) 
                     {
                         // length is 1 
@@ -338,7 +339,7 @@ namespace SysProgTemplateShared
                                 OverflowCheck(ip + 1, textLine);
 
                                 // addressing type 00 
-                                firstPassLine = $"{ip:X6} {(command.Code*4 + 0):X2}";
+                                firstPassLine = $"{ip:X6} {(command.Code * 4):X2}";
 
                                 ip += 1;
                                 break;
@@ -360,7 +361,7 @@ namespace SysProgTemplateShared
                                         OverflowCheck(ip + 2, textLine);
 
                                         // addressing type 00 
-                                        firstPassLine = $"{ip:X6} {(command.Code * 4 + 0):X2} {codeLine.FirstOperand} {codeLine.SecondOperand}";
+                                        firstPassLine = $"{ip:X6} {(command.Code * 4):X2} {codeLine.FirstOperand} {codeLine.SecondOperand}";
 
                                         ip += 2;
                                         break;
@@ -373,8 +374,6 @@ namespace SysProgTemplateShared
                                 // 1-byte value 
                                 else
                                 {
-                                    if (codeLine.SecondOperand != null) throw new AssemblerException($"Ожидается один операнд, но найдено два: {textLine}");
-
                                     int value; 
 
                                     // try convert 
@@ -382,7 +381,7 @@ namespace SysProgTemplateShared
                                     {
                                         value = Convert.ToInt32(codeLine.FirstOperand, 10);
                                     }
-                                    catch (Exception ex)
+                                    catch
                                     {
                                         throw new AssemblerException($"Невозможно преобразовать первый операнд в число: {textLine}");
                                     }
@@ -395,34 +394,12 @@ namespace SysProgTemplateShared
                                     OverflowCheck(ip + 2, textLine); 
 
                                     // addressing type 00 
-                                    firstPassLine = $"{ip:X6} {(command.Code * 4 + 0):X2} {value:X2}";
+                                    firstPassLine = $"{ip:X6} {(command.Code * 4):X2} {value:X2}";
                                     
                                     ip += 2;
                                     break;
                                 }
                             }
-
-                        // length is 3 
-                        // one operand, 2-byte value 
-                        /*case 3:
-                            {
-                                if (codeLine.FirstOperand == null)
-                                {
-                                    throw new AssemblerException($"Ожидается один операнд, но было получено ноль: {textLine}");
-                                }
-
-                                // check for allocated memory overflow 
-                                if (ip + 3 > maxAddress)
-                                {
-                                    throw new AssemblerException($"Произошло переполнение выделенной памяти:  {textLine}");
-                                }
-
-                                // addressing type 01 
-                                firstPassLine = $"{ip.ToString("X6")} {(command.Code * 4 + 1).ToString("X2")} {codeLine.FirstOperand}";
-
-                                ip += 3;
-                                break;
-                            }*/
 
                         // length 4 
                         case 4:
@@ -479,9 +456,9 @@ namespace SysProgTemplateShared
         public List<string> SecondPass(List<List<string>> firstPassCode)
         {
             var secondPassCode = new List<string>();
-            CodeLine codeLine = null;
-            var textLine = string.Empty;
-            var secondPassLine = string.Empty;
+            CodeLine codeLine;
+            string textLine;
+            string secondPassLine;
 
             for (int i = 0; i < firstPassCode.Count;  i++)
             {
@@ -492,12 +469,12 @@ namespace SysProgTemplateShared
                 if (i == 0)
                 {
                     // output 
-                    secondPassLine = $"{"H"} {codeLine.Label} {startAddress:X6} {(ip - startAddress):X6}";
+                    secondPassLine = $"H {codeLine.Label} {startAddress:X6} {(ip - startAddress):X6}";
                 }
                 else
                 {
                     // !!! length in half-bytes (?????) basically number of hex digits. 
-                    // !!! I'll switch to length in bytes, makes more sense, switch back  if needed 
+                    // !!! I'll switch to length in bytes, makes more sense, switch back if needed 
                     //
                     // if WORD + 3-byte value: WORD => 6 (length) + hex value 
                     // if BYTE + 1-byte value: BYTE => 1 (length) + hex value 
@@ -513,8 +490,7 @@ namespace SysProgTemplateShared
                         // if WORD + 3-byte value: WORD => 6 (length) + hex value 
                         case "WORD":
                             {
-                                secondPassLine = $"{"T"} {codeLine.Label} {3:X2} {codeLine.FirstOperand:X6}";
-
+                                secondPassLine = $"T {codeLine.Label} {3:X2} {codeLine.FirstOperand:X6}";
                                 break; 
                             }
 
@@ -529,13 +505,15 @@ namespace SysProgTemplateShared
                                     secondPassLine = $"{"T"} {codeLine.Label} {1:X2} {value:X2}";
                                     break; 
                                 }
-                                catch (Exception ex)
+                                catch
                                 {
+                                    if (codeLine.FirstOperand == null)
+                                    {
+                                        throw new AssemblerException($"Встречена пустая строка: {textLine}");
+                                    }
                                     if (IsCString(codeLine.FirstOperand))
                                     {
-                                        string symbols = codeLine.FirstOperand.Substring(2, codeLine.FirstOperand.Length-3);
-
-                                        //Console.WriteLine(symbols);
+                                        string symbols = codeLine.FirstOperand.Trim('C').Trim('\"');
 
                                         int length = symbols.Length;
 
@@ -548,10 +526,11 @@ namespace SysProgTemplateShared
 
                                         int length = symbols.Length;
 
-                                        secondPassLine = $"{"T"} {codeLine.Label} {length:X2} {symbols}";
+                                        secondPassLine = $"T {codeLine.Label} {length:X2} {symbols}";
                                         break;
                                     }
-                                    else{
+                                    else
+                                    {
                                         throw new AssemblerException($"Невозможно преобразовать первый операнд в строку: {textLine}");
                                     }
                                 }
@@ -567,7 +546,7 @@ namespace SysProgTemplateShared
                                 {
                                     length = Convert.ToInt32(codeLine.FirstOperand, 16); 
                                 }
-                                catch (Exception ex)
+                                catch
                                 {
                                     throw new AssemblerException($"Неыозможно преобразовать операнд в числовое значение {textLine}");
                                 }
@@ -586,7 +565,7 @@ namespace SysProgTemplateShared
                                 {
                                     length = Convert.ToInt32(codeLine.FirstOperand, 16);
                                 }
-                                catch (Exception ex)
+                                catch
                                 {
                                     throw new AssemblerException($"Неыозможно преобразовать операнд в числовое значение {textLine}");
                                 }
@@ -602,34 +581,48 @@ namespace SysProgTemplateShared
                         // if command + 1-byte value: length of the resulting value + {value = command code * 1-byte value}
                         default:
                             {
+                                // Определяем тип адресации из числового значения команды
+                                // Обнуляем все биты кроме последних двух. 
                                 int addressingType = (byte)Convert.ToInt32(codeLine.Command, 16) & 0x03;
 
                                 switch (addressingType) 
                                 {
-                                    // check if the 
+                                    // тип адресации 0 (прямая)
                                     case 0:
                                         {
                                             if(codeLine.FirstOperand == null && codeLine.SecondOperand == null) // operandless command
                                             {
-                                                secondPassLine = $"{"T"} {codeLine.Label} {1:X2} {codeLine.Command}";
+                                                secondPassLine = $"T {codeLine.Label} {1:X2} {codeLine.Command}";
                                             }
                                             else if(codeLine.SecondOperand != null) // registers 
                                             {
-                                                secondPassLine = $"{"T"} {codeLine.Label} {2:X2} {codeLine.Command}{GetRegisterNumber(codeLine.FirstOperand):X1}{GetRegisterNumber(codeLine.SecondOperand):X1}";
+                                                if(codeLine.FirstOperand == null)
+                                                {
+                                                    throw new AssemblerException($"Первый операнд имеет пустое значение: {textLine}");
+                                                } 
+                                                secondPassLine = $"T {codeLine.Label} {2:X2} {codeLine.Command}{GetRegisterNumber(codeLine.FirstOperand):X1}{GetRegisterNumber(codeLine.SecondOperand):X1}";
                                             }
                                             else // one operand 
                                             {
+                                                if (codeLine.FirstOperand == null)
+                                                {
+                                                    throw new AssemblerException($"Первый операнд имеет пустое значение: {textLine}");
+                                                }
                                                 int length = codeLine.FirstOperand.Length / 2;
 
-                                                secondPassLine = $"{"T"} {codeLine.Label} {length:X2} {codeLine.Command}{codeLine.FirstOperand}";
+                                                secondPassLine = $"T {codeLine.Label} {length:X2} {codeLine.Command}{codeLine.FirstOperand}";
                                             }
 
                                             break;
                                         }
-
-                                    // 
+                                    //тип адресации 1 (прямая)
                                     case 1:
                                         {
+                                            if (codeLine.FirstOperand == null)
+                                            {
+                                                throw new AssemblerException($"Первый операнд имеет пустое значение: {textLine}");
+                                            }
+
                                             var symbolicName = GetSymbolicName(codeLine.FirstOperand);    
 
                                             if(symbolicName == null)
@@ -660,13 +653,13 @@ namespace SysProgTemplateShared
             
             if (endAddress < startAddress || endAddress > ip) throw new AssemblerException($"Некорректный адрес входа в программу: {endAddress:X6}");
 
-            secondPassCode.Add($"{"E"} {endAddress:X6}"); 
+            secondPassCode.Add($"E {endAddress:X6}"); 
 
             return secondPassCode; 
         }
 
 
-        public void PushToTSI(string symbolicName, int address)
+        private void PushToTSI(string symbolicName, int address)
         {
             TSI.Add(new SymbolicName() {
                 Name = symbolicName,
@@ -679,14 +672,19 @@ namespace SysProgTemplateShared
             TSI.Clear();
         }
 
-        public bool IsCommand(string? chunk)
+        public string GetFormattedTsiForMain()
+        {
+            return string.Join("\n", TSI.Select(w => $"{w.Name} {w.Address:X6}"));
+        }
+
+        private bool IsCommand(string? chunk)
         {
             if(chunk == null) return false;  
 
             return AvailibleCommands.Select(c => c.Name.ToUpper()).Contains(chunk.ToUpper()); 
         } 
 
-        public bool IsDirective(string? chunk)
+        private bool IsDirective(string? chunk)
         {
             if (chunk == null) return false; 
 
@@ -694,15 +692,15 @@ namespace SysProgTemplateShared
         }
 
         // is it a label-formatted chunk and is it distinct from commands & directives 
-        public bool IsLabel(string? chunk)
+        private bool IsLabel(string? chunk)
         {
             if(chunk == null) return false;
 
             if (chunk.Length > 10) return false; 
 
-            if (!"qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM".Contains(chunk[0])) return false; 
+            if (!StringChecker.IsLatinLetter(chunk[0])) return false; 
 
-            if (!chunk.All(c => "1234567890qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM_".Contains(c))) return false;
+            if (!chunk.All(c => StringChecker.IsLatinLetterOrDigitOrUnderscore(c))) return false;
 
             if (IsRegister(chunk.ToUpper())) return false; 
 
@@ -712,7 +710,7 @@ namespace SysProgTemplateShared
             return true; 
         }
 
-        public bool IsXString(string? chunk)
+        private static bool IsXString(string? chunk)
         {
             if (chunk == null
                 || !chunk.StartsWith("X\"", StringComparison.OrdinalIgnoreCase)
@@ -723,7 +721,8 @@ namespace SysProgTemplateShared
 
             if (symbols.Length < 1
                 || symbols.Contains('\"')
-                || !symbols.All(c => "01234567890ABCDEF".Contains(c))
+                || !symbols.All(c => StringChecker.IsDigit(c) || "ABCDEF".Contains(c))
+                // true - если длина нечетная, false если четная
                 || symbols.Length % 2 != 0
                 )
                 return false;
@@ -731,7 +730,7 @@ namespace SysProgTemplateShared
             return true;
         }
 
-        public bool IsCString(string? chunk)
+        private static bool IsCString(string? chunk)
         {
             if (chunk == null
                 || !chunk.StartsWith("C\"", StringComparison.OrdinalIgnoreCase)
@@ -739,8 +738,7 @@ namespace SysProgTemplateShared
                 || chunk.Length < 4)
                 return false;
 
-            string symbols = chunk.Substring(1, chunk.Length-1);
-            Console.WriteLine(symbols); 
+            string symbols = chunk.Substring(1);
 
             if (symbols.Length < 1
                 || symbols.Any(c => c > 127) 
@@ -750,45 +748,50 @@ namespace SysProgTemplateShared
             return true; 
         }
 
-        public bool IsRegister(string? chunk)
+        /// <summary>
+        /// Регистр должен начинаться с заглавной буквы R после неё следует цифра от 1 до 16 (включительно)
+        /// </summary>
+        private static bool IsRegister(string? chunk)
         {
             if (chunk == null) return false; 
 
             return Regex.IsMatch(chunk, @"^R(?:[1-9]|1[0-6])$");
         }
 
-        public int GetRegisterNumber(string chunk)
+        private static int GetRegisterNumber(string chunk)
         {
-            return int.Parse(chunk.Substring(1, chunk.Length - 1));
+            return int.Parse(chunk.Substring(1));
         }
  
-        public SymbolicName? GetSymbolicName(string chunk)
+        private SymbolicName? GetSymbolicName(string chunk)
         {
-            var symbolicName = TSI.Find(n => n.Name.ToUpper() == chunk.ToUpper());
+            var symbolicName = TSI.Find(n => n.Name.Equals(chunk, StringComparison.CurrentCultureIgnoreCase));
 
             return symbolicName; 
         }
 
-        public string? ConvertToASCII(string chunk)
+        private static string? ConvertToASCII(string chunk)
         {
-            string result = "";
+            var result = new StringBuilder();
             byte[] textBytes = Encoding.ASCII.GetBytes(chunk);
+
             for (int i = 0; i < textBytes.Length; i++)
             {
-                result = result + textBytes[i].ToString("X2");
+                result.Append(textBytes[i].ToString("X2"));
             }
-            return result;
+
+            return result.ToString();
         }
 
-        public void OverflowCheck(int value, string textLine)
+        private static void OverflowCheck(int value, string textLine)
         {
             if (value < 0 || value > maxAddress) throw new AssemblerException($"Произошло переполнение выделенной памяти: {textLine}");
         }
 
         // returns a command object that has nullable parameters (label, first operand and second operand) and a non-nullable command. 
-        // guarantees that label & command/directive fit the formet. doesnt check operands 
+        // guarantees that label & command/directive fit the format. Doesnt check operands 
         // labels & commands/directives are set to upper case 
-        public CodeLine GetCodeLineFromSource(List<string> line)
+        private CodeLine GetCodeLineFromSource(List<string> line)
         {
             var textLine = string.Join(" ", line);
 
@@ -798,7 +801,7 @@ namespace SysProgTemplateShared
             switch (line.Count) 
             {
                 case 1:
-                    // can only be an operand-less command or END 
+                    // Can only be an operand-less command or END 
                     if (IsCommand(line[0]) || line[0].ToUpper() == "END")
                     {
                         return new CodeLine()
@@ -811,12 +814,11 @@ namespace SysProgTemplateShared
                     } 
                     else
                     {
-                        //throw new AssemblerException($"Неверный формат команды. Ожидается команда без операндов или директива END без операнда: {textLine}");
                         throw new AssemblerException($"Неверный формат команды: {textLine}");
                     }
 
                 case 2:
-                    // can be a label and an operand-less command or start/end 
+                    // Can be a label and an operand-less command or start/end 
                     if (IsLabel(line[0]) && (IsCommand(line[1]) || line[1].ToUpper() == "START" || line[1].ToUpper() == "END"))
                     {
                         return new CodeLine()
@@ -841,7 +843,6 @@ namespace SysProgTemplateShared
                     }
                     else
                     {
-                        //throw new AssemblerException($"Неверный формат команды. Ожидается метка с командой без операндов либо команда/директива с одним операндом: {textLine}");
                         throw new AssemblerException($"Неверный формат команды: {textLine}");
                     }
 
@@ -871,7 +872,6 @@ namespace SysProgTemplateShared
                     }
                     else
                     {
-                        //throw new AssemblerException($"Неверный формат команды. Ожидается метка и команда/директива с одним операндом либо команда с двумя операндами: {textLine}");
                         throw new AssemblerException($"Неверный формат команды: {textLine}");
                     }
 
@@ -890,7 +890,6 @@ namespace SysProgTemplateShared
                     }
                     else
                     {
-                        //throw new AssemblerException($"Неверный формат команды. Ожидается метка и команда с двумя операндами: {textLine}");
                         throw new AssemblerException($"Неверный формат команды: {textLine}"); 
                     }
 
@@ -899,7 +898,7 @@ namespace SysProgTemplateShared
             }
         }
 
-        public CodeLine GetCodeLineFromFirstPass(List<string> line)
+        private static CodeLine GetCodeLineFromFirstPass(List<string> line)
         {
             var textLine = string.Join(" ", line);
 
