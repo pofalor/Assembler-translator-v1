@@ -513,7 +513,7 @@ namespace SysProgTemplateShared
                                     }
                                     if (IsCString(codeLine.FirstOperand))
                                     {
-                                        string symbols = codeLine.FirstOperand.Trim('C').Trim('\"');
+                                        string symbols = codeLine.FirstOperand.Substring(2, codeLine.FirstOperand.Length - 3);
 
                                         int length = symbols.Length;
 
@@ -587,7 +587,7 @@ namespace SysProgTemplateShared
 
                                 switch (addressingType) 
                                 {
-                                    // тип адресации 0 (прямая)
+                                    // тип адресации 0 (непосредственная)
                                     case 0:
                                         {
                                             if(codeLine.FirstOperand == null && codeLine.SecondOperand == null) // operandless command
