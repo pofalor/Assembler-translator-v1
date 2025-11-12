@@ -459,6 +459,7 @@ namespace SysProgTemplateShared
             CodeLine codeLine;
             string textLine;
             string secondPassLine;
+            var second_ip = 0;
 
             for (int i = 0; i < firstPassCode.Count;  i++)
             {
@@ -490,6 +491,7 @@ namespace SysProgTemplateShared
                         // if WORD + 3-byte value: WORD => 6 (length) + hex value 
                         case "WORD":
                             {
+                                second_ip += 3;
                                 secondPassLine = $"T {codeLine.Label} {3:X2} {codeLine.FirstOperand:X6}";
                                 break; 
                             }
@@ -502,6 +504,7 @@ namespace SysProgTemplateShared
                                 {
                                     int value = Convert.ToInt32(codeLine.FirstOperand, 16);
 
+                                    second_ip += 1;
                                     secondPassLine = $"{"T"} {codeLine.Label} {1:X2} {value:X2}";
                                     break; 
                                 }
@@ -517,6 +520,7 @@ namespace SysProgTemplateShared
 
                                         int length = symbols.Length;
 
+                                        second_ip += length;
                                         secondPassLine = $"{"T"} {codeLine.Label} {length:X2} {ConvertToASCII(symbols)}";
                                         break;
                                     }
@@ -526,6 +530,7 @@ namespace SysProgTemplateShared
 
                                         int length = symbols.Length;
 
+                                        second_ip += length;
                                         secondPassLine = $"T {codeLine.Label} {length:X2} {symbols}";
                                         break;
                                     }
@@ -551,6 +556,7 @@ namespace SysProgTemplateShared
                                     throw new AssemblerException($"Неыозможно преобразовать операнд в числовое значение {textLine}");
                                 }
 
+                                second_ip += length;
                                 secondPassLine = $"{"T"} {codeLine.Label} {length:X2}";
 
                                 break; 
@@ -570,6 +576,7 @@ namespace SysProgTemplateShared
                                     throw new AssemblerException($"Неыозможно преобразовать операнд в числовое значение {textLine}");
                                 }
 
+                                second_ip += length * 3;
                                 secondPassLine = $"{"T"} {codeLine.Label} {(length*3):X2}";
 
                                 break;
@@ -585,6 +592,10 @@ namespace SysProgTemplateShared
                                 // Обнуляем все биты кроме последних двух. 
                                 int addressingType = (byte)Convert.ToInt32(codeLine.Command, 16) & 0x03;
 
+                                int commandCode = ((byte)Convert.ToInt32(codeLine.Command, 16) & 0xFC) >> 2;
+
+                                var command = AvailibleCommands.Where(c => c.Code == commandCode).First();
+
                                 switch (addressingType) 
                                 {
                                     // тип адресации 0 (непосредственная)
@@ -592,15 +603,17 @@ namespace SysProgTemplateShared
                                         {
                                             if(codeLine.FirstOperand == null && codeLine.SecondOperand == null) // operandless command
                                             {
-                                                secondPassLine = $"T {codeLine.Label} {1:X2} {codeLine.Command}";
+                                                second_ip += 1;
+                                                secondPassLine = $"T {codeLine.Label} {command.Length:X2} {codeLine.Command}";
                                             }
                                             else if(codeLine.SecondOperand != null) // registers 
                                             {
                                                 if(codeLine.FirstOperand == null)
                                                 {
                                                     throw new AssemblerException($"Первый операнд имеет пустое значение: {textLine}");
-                                                } 
-                                                secondPassLine = $"T {codeLine.Label} {2:X2} {codeLine.Command}{GetRegisterNumber(codeLine.FirstOperand):X1}{GetRegisterNumber(codeLine.SecondOperand):X1}";
+                                                }
+                                                second_ip += 2;
+                                                secondPassLine = $"T {codeLine.Label} {command.Length:X2} {codeLine.Command}{GetRegisterNumber(codeLine.FirstOperand):X1}{GetRegisterNumber(codeLine.SecondOperand):X1}";
                                             }
                                             else // one operand 
                                             {
@@ -608,9 +621,9 @@ namespace SysProgTemplateShared
                                                 {
                                                     throw new AssemblerException($"Первый операнд имеет пустое значение: {textLine}");
                                                 }
-                                                int length = codeLine.FirstOperand.Length / 2;
 
-                                                secondPassLine = $"T {codeLine.Label} {length:X2} {codeLine.Command}{codeLine.FirstOperand}";
+                                                second_ip += 2;
+                                                secondPassLine = $"T {codeLine.Label} {command.Length:X2} {codeLine.Command}{codeLine.FirstOperand}";
                                             }
 
                                             break;
@@ -631,7 +644,8 @@ namespace SysProgTemplateShared
                                             }
                                             else
                                             {
-                                                secondPassLine = $"{"T"} {codeLine.Label} {4:X2} {codeLine.Command}{symbolicName.Address:X6}";
+                                                second_ip += 4;
+                                                secondPassLine = $"{"T"} {codeLine.Label} {command.Length:X2} {codeLine.Command}{symbolicName.Address:X6}";
                                             }
 
                                             break; 
