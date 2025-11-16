@@ -57,8 +57,8 @@ namespace SysProgTemplateShared.Structure
             } 
             catch { throw new AssemblerException($"Код команды должен быть целым числом в 16-ричном формате: {command}"); } 
 
-            if (code < 0 || code > 255)
-                throw new AssemblerException($"Код команды должен быть значением от 0 до 255: {command}");
+            if (code < 0 || code >= 64)
+                throw new AssemblerException($"Код команды должен быть значением от 0 до 1F: {command}");
 
             Code = code;
 

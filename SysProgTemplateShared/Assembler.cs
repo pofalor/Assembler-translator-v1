@@ -594,7 +594,7 @@ namespace SysProgTemplateShared
 
                                 int commandCode = ((byte)Convert.ToInt32(codeLine.Command, 16) & 0xFC) >> 2;
 
-                                var command = AvailibleCommands.Where(c => c.Code == commandCode).First();
+                                var command = AvailibleCommands.First(c => c.Code == commandCode);
 
                                 switch (addressingType) 
                                 {
